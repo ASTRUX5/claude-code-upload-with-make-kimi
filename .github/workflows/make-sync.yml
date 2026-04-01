@@ -1,0 +1,61 @@
+name: Make.com Sync with Telegram
+
+on:
+  repository_dispatch:
+    types: [make_sync]
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout target repo
+        uses: actions/checkout@v3
+        with:
+          repository: ASTRUX5/${{ github.event.client_payload.repo }}
+          token: ${{ secrets.GH_PAT }}
+          path: target_repo
+
+      - name: Configure Git
+        working-directory: target_repo
+        run: |
+          git config user.email "bot@github.com"
+          git config user.name "Make Bot"
+
+      - name: Perform operation
+        working-directory: target_repo
+        run: |
+          REPO="${{ github.event.client_payload.repo }}"
+          FILE_PATH="${{ github.event.client_payload.file_path }}"
+          CONTENT="${{ github.event.client_payload.content }}"
+          ACTION="${{ github.event.client_payload.action }}"
+          
+          if [ "$ACTION" = "upsert" ]; then
+            mkdir -p "$(dirname "$FILE_PATH")"
+            printf '%s' "$CONTENT" > "$FILE_PATH"
+            git add "$FILE_PATH"
+            git diff --cached --quiet || git commit -m "Update $FILE_PATH"
+            git push
+            echo "STATUS=success" >> $GITHUB_ENV
+            echo "MESSAGE=✅ File $FILE_PATH updated in $REPO"
+          elif [ "$ACTION" = "delete" ]; then
+            git rm -f "$FILE_PATH"
+            git commit -m "Delete $FILE_PATH"
+            git push
+            echo "STATUS=success" >> $GITHUB_ENV
+            echo "MESSAGE=✅ File $FILE_PATH deleted from $REPO"
+          fi
+
+      - name: Send Telegram notification
+        if: always()
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_CHAT_ID }}
+          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          message: |
+            ${{ env.STATUS == 'success' && '✅' || '❌' }} GitHub Sync
+            
+            Repo: ${{ github.event.client_payload.repo }}
+            File: ${{ github.event.client_payload.file_path }}
+            Action: ${{ github.event.client_payload.action }}
+            Status: ${{ job.status }}
+
