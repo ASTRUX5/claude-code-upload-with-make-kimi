@@ -1,0 +1,38 @@
+{
+  "name": "Kimi to GitHub",
+  "flow": [
+    {
+      "id": 1,
+      "module": "gateway:CustomWebHook",
+      "version": 1,
+      "parameters": {
+        "hookId": "kimi-webhook"
+      }
+    },
+    {
+      "id": 2,
+      "module": "http:MakeRequest",
+      "version": 4,
+      "parameters": {
+        "authenticationType": "noAuth"
+      },
+      "mapper": {
+        "url": "https://api.github.com/repos/ASTRUX5/claude-code-upload-with-make-kimi/dispatches",
+        "method": "post",
+        "headers": [
+          {
+            "name": "Authorization",
+            "value": "token YOUR_GITHUB_PAT_HERE"
+          },
+          {
+            "name": "Accept",
+            "value": "application/vnd.github.v3+json"
+          }
+        ],
+        "contentType": "json",
+        "parseResponse": true,
+        "rawBodyContent": "{\"event_type\":\"make_sync\",\"client_payload\":{\"repo\":\"{{1.repo}}\",\"file_path\":\"{{1.file_path}}\",\"content\":\"{{1.content}}\",\"action\":\"{{1.action}}\"}}"
+      }
+    }
+  ]
+}
